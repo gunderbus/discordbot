@@ -14,9 +14,12 @@ dspy.settings.configure(lm=lm)
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-def answer_question(question: str) -> str:
+class QA(dspy.Signature):
     # Placeholder for actual question-answering logic
-    return 
+    ques = dspy.InputField()
+    code = dspy.InputField()
+    answer = dspy.OutputField()
+
 
 @bot.event
 async def on_ready():
@@ -37,7 +40,14 @@ async def echo(interaction: discord.Interaction, message: str):
 @bot.tree.command(name="Check Code", description="Checks code and gives feedback.")
 async def check_code(interaction: discord.Interaction, code: str):
     # Placeholder for code checking logic
-    feedback = f"Received your code:\n```\n{code}\n```\nThis is just a placeholder response."
+    feedback = QA(ques="Is this code correct?", code=code).answer
+    isSussy = dspy.predict(dspy.Signature("comment -> notNice: bool ", instructions="Determine if the comment is not nice."))
+    commend = code
+    trueIsSussy = isSussy(commend=commend).notNice
+
+    if(trueIsSussy):
+        feedback = "AYO buddy that isnt nice buckaroo you should be nice to people 😭✌️"
+
     await interaction.response.send_message(feedback)
 
 token = os.getenv("DISCORD_TOKEN")
