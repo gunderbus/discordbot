@@ -23,6 +23,13 @@ class QA(dspy.Signature):
     code = dspy.InputField()
     answer = dspy.OutputField()
 
+class NotNice(dspy.Signature):
+    """Determine if the comment is not nice."""
+    comment = dspy.InputField()
+    notNice = dspy.OutputField(desc="True if the comment is not nice")
+
+qa = dspy.Predict(QA)
+is_sussy = dspy.Predict(NotNice)
 
 guild_id = os.getenv("DISCORD_GUILD_ID")
 guild = discord.Object(id=int(guild_id)) if guild_id else None
@@ -51,12 +58,10 @@ async def echo(interaction: discord.Interaction, message: str):
 @bot.tree.command(name="check_code", description="Checks code and gives feedback.")
 async def check_code(interaction: discord.Interaction, code: str):
     # Placeholder for code checking logic
-    feedback = QA(ques="Is this code correct?", code=code).answer
-    isSussy = dspy.predict(dspy.Signature("comment -> notNice: bool ", instructions="Determine if the comment is not nice."))
-    commend = code
-    trueIsSussy = isSussy(commend=commend).notNice
+    feedback = qa(ques="Is this code correct?", code=code).answer
+    true_is_sussy = is_sussy(comment=code).notNice
 
-    if(trueIsSussy):
+    if true_is_sussy:
         feedback = "AYO buddy that isnt nice buckaroo you should be nice to people \ud83d\ude2d\u270c\ufe0f"
 
     await interaction.response.send_message(feedback)
