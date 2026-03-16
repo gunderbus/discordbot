@@ -2,6 +2,12 @@ import os
 import dspy
 
 import discord
+
+try:
+    from litellm.exceptions import APIConnectionError
+except Exception:  # litellm may not expose this in older versions
+    APIConnectionError = Exception
+
 from discord.ext import commands
 from dotenv import load_dotenv
 
@@ -34,8 +40,9 @@ class NotNice(dspy.Signature):
 qa = dspy.Predict(QA)
 is_sussy = dspy.Predict(NotNice)
 
-guild_id = os.getenv("DISCORD_GUILD_ID")
+guild_id = os.getenv("1483181346816917640")
 guild = discord.Object(id=int(guild_id)) if guild_id else None
+tree_command = (lambda **kwargs: bot.tree.command(guild=guild, **kwargs)) if guild else bot.tree.command
 
 # Simple guard to prevent always-true model outputs.
 BAD_WORDS = {
@@ -56,6 +63,17 @@ def safe_text(text: str) -> str:
 def to_bool_strict(value) -> bool:
     return str(value).strip().lower() == "true"
 
+def model_call_or_error(prompt: str, code: str):
+    try:
+        return qa(ques=prompt, code=code).answer, None
+    except APIConnectionError as exc:
+        return None, exc
+    except Exception as exc:
+        msg = str(exc)
+        if "Connection refused" in msg or "APIConnectionError" in msg or "Ollama" in msg:
+            return None, exc
+        raise
+
 @bot.event
 async def on_ready():
     try:
@@ -69,11 +87,25 @@ async def on_ready():
         print(f"Command sync failed: {exc}")
     print(f"Logged in as {bot.user}")
 
-@bot.tree.command(name="give_suggestions", description="Gives suggestions to add to code.")
+@tree_command(name="talk_to_cole", description="Talk to cole and ask him questions about his code.")
+async def talk_to_cole(interaction: discord.Interaction, question: str):
+    print("Talking to cole in server: ", interaction.guild_id)
+    await interaction.response.defer(thinking=True)
+    feedback, model_err = model_call_or_error(question, "please talk as cole and answer the question based on what you know about him and his code. be as detailed as possible in your answer. Also, please talk like him, like using his common phrases and slang. If you dont know the answer, say you dont know but try to give your best guess. Here is some information about cole: cole is a software engineer who has been coding for 10 years. he has worked at google and facebook. he is currently working on a project called dspy which is a library for building AI agents. he is very smart and funny. he loves to make jokes and use memes in his code comments.")
+    if model_err:
+        await interaction.followup.send("Model backend is unavailable. Make sure Ollama is running and OLLAMA_API_BASE is reachable.")
+        return
+    await interaction.followup.send(safe_text(feedback))
+
+
+@tree_command(name="give_suggestions", description="Gives suggestions to add to code.")
 async def give_suggestions(interaction: discord.Interaction, code: str):
     await interaction.response.defer(thinking=True)
-
-    feedback = qa(ques="What are some things i can do better with this code?", code=code).answer
+    print("Giving suggestions for code in server: ", interaction.guild_id)
+    feedback, model_err = model_call_or_error("What are some things i can do better with this code?", code)
+    if model_err:
+        await interaction.followup.send("Model backend is unavailable. Make sure Ollama is running and OLLAMA_API_BASE is reachable.")
+        return
 
     code_lower = code.lower()
     contains_bad = any(bad in code_lower for bad in BAD_WORDS)
@@ -87,20 +119,25 @@ async def give_suggestions(interaction: discord.Interaction, code: str):
 
     await interaction.followup.send(safe_text(feedback))
     
-@bot.tree.command(name="ping", description="Check if the bot is alive.")
+@tree_command(name="ping", description="Check if the bot is alive.")
 async def ping(interaction: discord.Interaction):
-    await interaction.response.send_message("I love parker so much!")
+    print("Pinged in server: ", interaction.guild_id)
+    await interaction.response.send_message("We're online!")
 
-@bot.tree.command(name="echo", description="Echo back your message.")
+@tree_command(name="echo", description="Echo back your message.")
 async def echo(interaction: discord.Interaction, message: str):
+    print("Echoing message " + message + " in server: ", interaction.guild_id)
     await interaction.response.send_message(message)
 
-@bot.tree.command(name="explain_code", description="Explains the code in full detail.")
+@tree_command(name="explain_code", description="Explains the code in full detail.")
 async def explain_code(interaction: discord.Interaction, code: str):
     # Acknowledge quickly to avoid the 3-second interaction timeout.
     await interaction.response.defer(thinking=True)
-
-    feedback = qa(ques="What is this code doing and what are some key points in the code?", code=code).answer
+    print("Explaining code in server: ", interaction.guild_id)
+    feedback, model_err = model_call_or_error("What is this code doing and what are some key points in the code?", code)
+    if model_err:
+        await interaction.followup.send("Model backend is unavailable. Make sure Ollama is running and OLLAMA_API_BASE is reachable.")
+        return
 
     code_lower = code.lower()
     contains_bad = any(bad in code_lower for bad in BAD_WORDS)
