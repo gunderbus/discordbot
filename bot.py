@@ -24,10 +24,18 @@ class QA(dspy.Signature):
     answer = dspy.OutputField()
 
 
+guild_id = os.getenv("DISCORD_GUILD_ID")
+guild = discord.Object(id=int(guild_id)) if guild_id else None
+
 @bot.event
 async def on_ready():
     try:
-        await bot.tree.sync()
+        if guild:
+            await bot.tree.sync(guild=guild)
+            print(f"Synced commands to guild {guild.id}")
+        else:
+            await bot.tree.sync()
+            print("Synced commands globally (may take up to 1 hour).")
     except Exception as exc:
         print(f"Command sync failed: {exc}")
     print(f"Logged in as {bot.user}")
