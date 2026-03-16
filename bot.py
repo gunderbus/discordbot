@@ -56,7 +56,6 @@ def safe_text(text: str) -> str:
 def to_bool_strict(value) -> bool:
     return str(value).strip().lower() == "true"
 
-
 @bot.event
 async def on_ready():
     try:
@@ -70,6 +69,24 @@ async def on_ready():
         print(f"Command sync failed: {exc}")
     print(f"Logged in as {bot.user}")
 
+@bot.tree.command(name="give_suggestions", description="Gives suggestions to add to code.")
+async def give_suggestions(interaction: discord.Interaction, code: str):
+    await interaction.response.defer(thinking=True)
+
+    feedback = qa(ques="What are some things i can do better with this code?", code=code).answer
+
+    code_lower = code.lower()
+    contains_bad = any(bad in code_lower for bad in BAD_WORDS)
+    true_is_sussy = False
+    if contains_bad:
+        sussy_raw = is_sussy(comment=code).notNice
+        true_is_sussy = to_bool_strict(sussy_raw)
+
+    if true_is_sussy:
+        feedback = "AYO buddy that isnt nice buckaroo you should be nice to people \ud83d\ude2d\u270c\ufe0f"
+
+    await interaction.followup.send(safe_text(feedback))
+    
 @bot.tree.command(name="ping", description="Check if the bot is alive.")
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message("I love parker so much!")
@@ -78,12 +95,12 @@ async def ping(interaction: discord.Interaction):
 async def echo(interaction: discord.Interaction, message: str):
     await interaction.response.send_message(message)
 
-@bot.tree.command(name="check_code", description="Checks code and gives feedback.")
-async def check_code(interaction: discord.Interaction, code: str):
+@bot.tree.command(name="explain_code", description="Explains the code in full detail.")
+async def explain_code(interaction: discord.Interaction, code: str):
     # Acknowledge quickly to avoid the 3-second interaction timeout.
     await interaction.response.defer(thinking=True)
 
-    feedback = qa(ques="Please give me an explination of the code, three things i can do better in bullet points, and someplaces you might think that errors will occur.", code=code).answer
+    feedback = qa(ques="What is this code doing and what are some key points in the code?", code=code).answer
 
     code_lower = code.lower()
     contains_bad = any(bad in code_lower for bad in BAD_WORDS)
