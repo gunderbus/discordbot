@@ -83,7 +83,7 @@ async def check_code(interaction: discord.Interaction, code: str):
     # Acknowledge quickly to avoid the 3-second interaction timeout.
     await interaction.response.defer(thinking=True)
 
-    feedback = qa(ques="Is this code correct?", code=code).answer
+    feedback = qa(ques="Please give me an explination of the code, three things i can do better in bullet points, and someplaces you might think that errors will occur.", code=code).answer
 
     code_lower = code.lower()
     contains_bad = any(bad in code_lower for bad in BAD_WORDS)
