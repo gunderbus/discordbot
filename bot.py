@@ -7,10 +7,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# configure your model
+# configure your model (Ollama)
+ollama_model = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
+ollama_api_base = os.getenv("OLLAMA_API_BASE", "http://localhost:11434")
 lm = dspy.LM(
-    "openai/gpt-4o-mini",
-    api_key=os.getenv("OPENAI_API_KEY"),
+    f"ollama_chat/{ollama_model}",
+    api_base=ollama_api_base,
+    api_key="",
 )
 dspy.settings.configure(lm=lm)
 
@@ -24,15 +27,35 @@ class QA(dspy.Signature):
     answer = dspy.OutputField()
 
 class NotNice(dspy.Signature):
-    """Determine if the comment is not nice."""
+    """Determine if the comment is not nice. Reply with true or false only."""
     comment = dspy.InputField()
-    notNice = dspy.OutputField(desc="True if the comment is not nice")
+    notNice = dspy.OutputField(desc="true if the comment is not nice, else false")
 
 qa = dspy.Predict(QA)
 is_sussy = dspy.Predict(NotNice)
 
 guild_id = os.getenv("DISCORD_GUILD_ID")
 guild = discord.Object(id=int(guild_id)) if guild_id else None
+
+# Simple guard to prevent always-true model outputs.
+BAD_WORDS = {
+    "idiot",
+    "stupid",
+    "dumb",
+    "hate",
+    "kill",
+    "shut up",
+}
+
+
+def safe_text(text: str) -> str:
+    # Replace invalid UTF-8 surrogates that Discord rejects.
+    return text.encode("utf-8", "replace").decode("utf-8")
+
+
+def to_bool_strict(value) -> bool:
+    return str(value).strip().lower() == "true"
+
 
 @bot.event
 async def on_ready():
@@ -57,14 +80,22 @@ async def echo(interaction: discord.Interaction, message: str):
 
 @bot.tree.command(name="check_code", description="Checks code and gives feedback.")
 async def check_code(interaction: discord.Interaction, code: str):
-    # Placeholder for code checking logic
+    # Acknowledge quickly to avoid the 3-second interaction timeout.
+    await interaction.response.defer(thinking=True)
+
     feedback = qa(ques="Is this code correct?", code=code).answer
-    true_is_sussy = is_sussy(comment=code).notNice
+
+    code_lower = code.lower()
+    contains_bad = any(bad in code_lower for bad in BAD_WORDS)
+    true_is_sussy = False
+    if contains_bad:
+        sussy_raw = is_sussy(comment=code).notNice
+        true_is_sussy = to_bool_strict(sussy_raw)
 
     if true_is_sussy:
         feedback = "AYO buddy that isnt nice buckaroo you should be nice to people \ud83d\ude2d\u270c\ufe0f"
 
-    await interaction.response.send_message(feedback)
+    await interaction.followup.send(safe_text(feedback))
 
 token = os.getenv("DISCORD_TOKEN")
 if not token:
