@@ -8,7 +8,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # configure your model
-lm = dspy.OpenAI(model="gpt-4o-mini")
+lm = dspy.LM(
+    "openai/gpt-4o-mini",
+    api_key=os.getenv("OPENAI_API_KEY"),
+)
 dspy.settings.configure(lm=lm)
 
 intents = discord.Intents.default()
@@ -37,7 +40,7 @@ async def ping(interaction: discord.Interaction):
 async def echo(interaction: discord.Interaction, message: str):
     await interaction.response.send_message(message)
 
-@bot.tree.command(name="Check Code", description="Checks code and gives feedback.")
+@bot.tree.command(name="check_code", description="Checks code and gives feedback.")
 async def check_code(interaction: discord.Interaction, code: str):
     # Placeholder for code checking logic
     feedback = QA(ques="Is this code correct?", code=code).answer
@@ -46,7 +49,7 @@ async def check_code(interaction: discord.Interaction, code: str):
     trueIsSussy = isSussy(commend=commend).notNice
 
     if(trueIsSussy):
-        feedback = "AYO buddy that isnt nice buckaroo you should be nice to people 😭✌️"
+        feedback = "AYO buddy that isnt nice buckaroo you should be nice to people \ud83d\ude2d\u270c\ufe0f"
 
     await interaction.response.send_message(feedback)
 
