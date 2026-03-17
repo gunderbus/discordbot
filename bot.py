@@ -40,7 +40,7 @@ class NotNice(dspy.Signature):
 qa = dspy.Predict(QA)
 is_sussy = dspy.Predict(NotNice)
 
-guild_id = os.getenv("1483181346816917640")
+guild_id = os.getenv("DISCORD_GUILD_ID")
 guild = discord.Object(id=int(guild_id)) if guild_id else None
 tree_command = (lambda **kwargs: bot.tree.command(guild=guild, **kwargs)) if guild else bot.tree.command
 
@@ -52,6 +52,17 @@ BAD_WORDS = {
     "hate",
     "kill",
     "shut up",
+    "fuck",
+    "shit",
+    "nigger",
+    "nigga",
+    "bitch",
+    "slut",
+    "whore",
+    "asshole",
+    "faggot",
+    "cunt"
+
 }
 
 
@@ -62,6 +73,10 @@ def safe_text(text: str) -> str:
 
 def to_bool_strict(value) -> bool:
     return str(value).strip().lower() == "true"
+
+def log_to_file(filename: str, content: str):
+    with open(filename, "a", encoding="utf-8") as f:
+        f.write(content + "\n")
 
 def model_call_or_error(prompt: str, code: str):
     try:
@@ -78,8 +93,11 @@ def model_call_or_error(prompt: str, code: str):
 async def on_ready():
     try:
         if guild:
+            # Remove global commands to avoid duplicates during dev.
+            bot.tree.clear_commands(guild=None)
+            await bot.tree.sync()
             await bot.tree.sync(guild=guild)
-            print(f"Synced commands to guild {guild.id}")
+            print(f"Synced commands to guild {guild.id} and cleared global commands")
         else:
             await bot.tree.sync()
             print("Synced commands globally (may take up to 1 hour).")
@@ -90,6 +108,7 @@ async def on_ready():
 @tree_command(name="talk_to_cole", description="Talk to cole and ask him questions about his code.")
 async def talk_to_cole(interaction: discord.Interaction, question: str):
     print("Talking to cole in server: ", interaction.guild_id)
+    log_to_file("logs.txt", "[Talk to Cole] Question: " + question + " | Server ID: " + str(interaction.guild_id))
     await interaction.response.defer(thinking=True)
     feedback, model_err = model_call_or_error(question, "please talk as cole and answer the question based on what you know about him and his code. be as detailed as possible in your answer. Also, please talk like him, like using his common phrases and slang. If you dont know the answer, say you dont know but try to give your best guess. Here is some information about cole: cole is a software engineer who has been coding for 10 years. he has worked at google and facebook. he is currently working on a project called dspy which is a library for building AI agents. he is very smart and funny. he loves to make jokes and use memes in his code comments.")
     if model_err:
@@ -102,6 +121,7 @@ async def talk_to_cole(interaction: discord.Interaction, question: str):
 async def give_suggestions(interaction: discord.Interaction, code: str):
     await interaction.response.defer(thinking=True)
     print("Giving suggestions for code in server: ", interaction.guild_id)
+    log_to_file("logs.txt", "[Give Suggestions] Code: " + code + " | Server ID: " + str(interaction.guild_id))
     feedback, model_err = model_call_or_error("What are some things i can do better with this code?", code)
     if model_err:
         await interaction.followup.send("Model backend is unavailable. Make sure Ollama is running and OLLAMA_API_BASE is reachable.")
@@ -122,17 +142,20 @@ async def give_suggestions(interaction: discord.Interaction, code: str):
 @tree_command(name="ping", description="Check if the bot is alive.")
 async def ping(interaction: discord.Interaction):
     print("Pinged in server: ", interaction.guild_id)
+    log_to_file("logs.txt", "[Ping] Server ID: " + str(interaction.guild_id))
     await interaction.response.send_message("We're online!")
 
 @tree_command(name="echo", description="Echo back your message.")
 async def echo(interaction: discord.Interaction, message: str):
     print("Echoing message " + message + " in server: ", interaction.guild_id)
+    log_to_file("logs.txt", "[Echo] Message: " + message + " | Server ID: " + str(interaction.guild_id))
     await interaction.response.send_message(message)
 
 @tree_command(name="explain_code", description="Explains the code in full detail.")
 async def explain_code(interaction: discord.Interaction, code: str):
     # Acknowledge quickly to avoid the 3-second interaction timeout.
     await interaction.response.defer(thinking=True)
+    log_to_file("logs.txt", "[Explain Code] Code: " + code + " | Server ID: " + str(interaction.guild_id))
     print("Explaining code in server: ", interaction.guild_id)
     feedback, model_err = model_call_or_error("What is this code doing and what are some key points in the code?", code)
     if model_err:
